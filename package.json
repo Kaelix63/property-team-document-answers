@@ -1,0 +1,24 @@
+{
+  "name": "property-team-document-answers",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx src/seed_property_documents.ts",
+    "dev": "tsx watch src/property_document_service.ts",
+    "start": "tsx src/property_document_service.ts",
+    "test": "tsx --test test/document_priority.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "openai": "^5.12.2",
+    "zod": "^4.0.14"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.1.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
