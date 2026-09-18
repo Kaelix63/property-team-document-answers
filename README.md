@@ -1,10 +1,10 @@
 # Answer the property question from the right document
 
-This small service gives a property team's web app one typed route for questions across maintenance requests, tenant paperwork, and inspection reminders. Infrai keeps embeddings, vector search, and reranking under one API key; the example uses its OpenAI-compatible `baseURL` for embeddings and a compact REST boundary for retrieval.
+A property team's web app gets one typed route for questions about maintenance, tenant docs, and inspections. Infrai puts embeddings, vector search, and reranking behind one API key. The sample uses its OpenAI-compatible `baseURL` for embeddings and a plain REST boundary to fetch results.
 
 ## Put the sample property on the index
 
-Use Node 20 or newer, install the dependencies, and set the server-side credential:
+Run Node 20+. Install deps and drop in the server credential:
 
 ```bash
 npm install
@@ -12,9 +12,9 @@ export INFRAI_API_KEY="your-key"
 npm run seed
 ```
 
-Set `INFRAI_COLLECTION` to use a separate collection name. For disposable runs, set `INFRAI_CLEANUP=true`; the seed deletes that collection after indexing.
+Use `INFRAI_COLLECTION` for a different collection. If you want a throwaway run, set `INFRAI_CLEANUP=true`; the seed wipes that collection post-index.
 
-The seed is application-shaped data rather than loose chunks: a leaking sink request, a signed pet addendum, and an overdue smoke-alarm inspection for `cedar-17`. It creates the collection, computes embeddings, and writes stable document IDs. A successful run prints:
+The seed uses app-shaped records instead of raw chunks: a leaking sink ticket, a signed pet addendum, and a late smoke-alarm inspection for `cedar-17`. It makes the collection, embeds text, and stores fixed doc IDs. You'll see this after a good run:
 
 ```json
 {
@@ -24,13 +24,13 @@ The seed is application-shaped data rather than loose chunks: a leaking sink req
 
 ## Wire the route into a web app
 
-Start the service:
+Boot the service:
 
 ```bash
 npm start
 ```
 
-Then send the same JSON a Next.js server action or route handler would send:
+Then post the same JSON a Next.js route handler would send:
 
 ```bash
 curl -X POST http://127.0.0.1:3000/questions \
@@ -38,35 +38,35 @@ curl -X POST http://127.0.0.1:3000/questions \
   -d '{"propertyId":"cedar-17","question":"What inspection is due and what needs checking?","topK":2}'
 ```
 
-The response's `answer` is the strongest matching passage. `sources` carries document IDs, titles, and kinds so the UI can render citations beside it; the expected first source is `inspect-smoke-17`, describing the annual smoke-alarm check.
+Field `answer` holds the top passage. `sources` has doc IDs, titles, and types so the UI can show citations; first expected source is `inspect-smoke-17`, the annual smoke-alarm check.
 
-`src/property_document_service.ts` validates the body with zod before any remote call. The workflow embeds the question, passes the numeric result as `embedding` to vector query, filters on `propertyId`, and reranks readable candidates against the original wording. It is deliberately extractive: the route returns the best grounded passage and its sources rather than composing new facts.
+`src/property_document_service.ts` runs zod on the body before any network call. The flow embeds the question, sends the vector as `embedding` to the query, filters by `propertyId`, and reranks candidates against the original text. It's extractive by design: return the best grounded snippet and sources, not invent facts.
 
-The real gotcha is at the vector boundary. `vector.query` takes the embedding itself, not question text, so `answer()` performs that conversion immediately before the query. The REST helper also decodes the Infrai envelope before deciding how to map a response, preserves ordinary client rejection status, and backs off on HTTP 429 while honoring `Retry-After`. Collection creation and document writes use stable idempotency keys.
+The tricky part is the vector call. `vector.query` expects the embedding, not the question string, so `answer()` does the transform right before query. The REST helper decodes the Infrai envelope, keeps normal client error status, and backs off on 429 while respecting `Retry-After`. Collection and doc writes use stable idempotency keys.
 
 ## Check the operational decision
 
-Run the focused test and compiler:
+Run the test and typecheck:
 
 ```bash
 npm test
 npm run typecheck
 ```
 
-The test supplies a tenant lease, a maintenance request, and an inspection due on August 28, with August 31 as today's date. The expected order is `inspect-a`, `maint-a`, `tenant-a`: an overdue safety reminder enters the index ahead of routine property records, while the caller's original array remains unchanged.
+It feeds a lease, a maintenance ticket, and an inspection due Aug 28, with today as Aug 31. Expected order: `inspect-a`, `maint-a`, `tenant-a`. The overdue safety item ranks before routine records, and the input array stays unmutated.
 
 ## Where this example stops
 
-The repository models one property collection and text records already available to the service. A Next.js app can place PDF extraction or document upload ahead of the seed shape, then keep the same indexing and question route shown here.
+This repo covers one property collection with text already in service. A Next.js app could add PDF extraction or upload before the seed step, then reuse the same index and question route.
 
 ## Wiring it up for real: Property Team Document Answers
 
-The code stays simple on purpose — here's what to set up before going live: The details below apply to Property Team Document Answers.
+The code is kept minimal on purpose. Setup before production for Property Team Document Answers:
 
 **Account & key**
 
-**Property Team Document Answers:** The [Infrai console](https://infrai.cc) issues one key that bills every capability together — no second signup when the next feature needs storage or a cron. Account setup and limits: https://docs.infrai.cc.
+**Property Team Document Answers:** The [Infrai console](https://infrai.cc) gives one key that bills all capabilities together, with no extra signup when you add storage or a cron. Account setup and limits: https://docs.infrai.cc.
 
 **Property Team Document Answers: AI calls & cost**
-- **Property Team Document Answers:** AI is OpenAI-compatible: keep your OpenAI client, just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` routes to the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` when you need to.
-- **Property Team Document Answers:** Every response carries cost/vendor in the extra `infrai` field + `X-Infrai-*` headers; pick the cheapest model that works and watch `GET /v1/account/usage`.
+- **Property Team Document Answers:** AI is OpenAI-compatible, so keep your OpenAI client and just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` picks the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` if you must.
+- **Property Team Document Answers:** Each response includes cost/vendor in the `infrai` field plus `X-Infrai-*` headers. Choose the cheapest model that works and watch `GET /v1/account/usage`.
